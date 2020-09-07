@@ -1,59 +1,121 @@
-class Tag:
+from collections import UserList
+from pathlib import Path
+
+class TagSingleLine():
+    """
+    тэг в одну строку, не имеет потомков
+    """
     def __init__(self, tag, klass=None, **kwargs):
-        self.tag = tag
+        self.__tag = tag
         self.text = ""
-        self.attributes = {}
-        self._children = []
-        self.indent = ""
-
+        # разбор атрибутов
+        self._attributes = {}
         if klass:
-            self.attributes["class"] = " ".join(klass)
+            self._attributes["class"] = " ".join(klass)
+        self._attributes.update(kwargs)
+        # атрибут чилдрен тут потому что __init__ тут
+        self._children = []
+        # отступы. но не очень получилось
+        self._indent = ""
     
-    def child(self, tag, *args, **kwargs):
-        child = Tag(tag, *args, **kwargs)
-        if self.indent:
-            child.indent = "  " + self.indent
-        else:
-            child.indent = "  "
-        self._children.append(child)
-        return child
-    
-    def __str__(self):
-        child_line = ""
+    def __iter__(self):
+        # можно for собрать отступы но не очень корректно показывает вложенность одного уровня
+        return iter(self._children)
+      
+    @property
+    def tag(self):
+        # не изменяемый тэг
         if self.attributes:
-            attrs = [f"{attribute}={value}" for attribute, value in self.attributes.items()]
-            first_line = f'{self.indent}<{self.tag} {" ".join(attrs)}>\n'
+            return f'{self._indent}<{self.__tag} {self.attributes}>'
         else:
-            first_line = f'{self.indent}<{self.tag}>\n'
-        if self._children:
-            child_line = [f'{item}' for item in self._children]
-        last_line = f'{self.indent}/<{self.tag}>\n'                     
-        return first_line +f"{self.text}"+ f'{"".join(child_line)}' + last_line
+            return f'{self._indent}<{self.__tag}>'
 
-class Html:
-    def __init__(self):
-        self._child = None
-
-    def child(self, tag):
-        self._child = Tag(tag)
-        return self._child
-
-    def show(self):
-        print(self._child)
-
-test = Html()
-test_child = test.child('H1')
-test_child2 = test_child.child('H2', klass=("container", "container-fluid"))
-test_child3 = test_child2.child('H3')
-test_child4 = test_child3.child('H4')
-test_child4 = test_child3.child('p')
-test_child4.text = 'blavlabab'
-test.show()
-
-
-
-
+    @property
+    def close_tag(self):
+        return f'/<{self.__tag}>'
     
+    @property
+    def attributes(self):
+        if self._attributes:
+            attr = []
+            attr = [f"{attribute}={value}" for attribute, value in self._attributes.items()]
+            return " ".join(attr)
+         
+    def __str__(self):
+        return "{}{}{}\n".format(self.tag, self.text, self.close_tag)
 
+class SingleTag(TagSingleLine):
+    """
+    не парный тэг, не имеет потомков
+    """
+    @property
+    def close_tag(self):
+        return f'/>'
 
+class Tag(TagSingleLine):
+    """
+    парный тэг, с возможностью вложенности
+    """
 
+    def __str__(self):
+        child = []
+        if self._children:
+            arr = []
+            for item in self._children:
+                #вот тут добавляются отступы
+                item._indent = self._indent + "  "
+                arr.append(str(item))
+            child.extend(arr)
+        if self.text:
+            self.text += "\n"
+        child_line = "".join(child)
+        return "{0}{1}\n{2}{3}{4}{5}\n".format(self._indent, self.tag, self.text, child_line, self._indent, self.close_tag)
+    
+    def __iadd__ (self, other):
+        self._children.append(other)
+        return self
+
+class Html(UserList):
+
+    def _render(self):
+        # рендеринг текста html
+        items = [str(item) for item in self.data] # как бы рекурсивный str
+        message = "<html>\n"
+        message += "".join(items)
+        message += "</html>"
+        return message
+    
+    def show(self):
+        print(self._render())
+
+    def write(self, str):
+        path = Path(str)      
+        path.write_text(self._render())
+
+if __name__ == '__main__':
+    doc = Html()
+    head = Tag("head")
+
+    title = TagSingleLine("title")
+    title.text = "hello"
+    head += title
+    doc.append(head)
+
+    body = Tag("body")
+    h1 = TagSingleLine("h1", klass=("main-text",))
+    h1.text = "Test"
+    body += h1
+
+    div = Tag("div", klass=("container", "container-fluid"), id="lead")
+    paragraph = TagSingleLine("p")
+    paragraph.text = "another test"
+    div += paragraph
+
+    img = TagSingleLine("img", src="/icon.png", data_image="responsive")
+    div += img
+    body += div
+
+    doc.append(body)
+    doc.show()
+
+    doc.write('index.html')
