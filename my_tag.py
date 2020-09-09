@@ -1,5 +1,6 @@
 from collections import UserList
 from pathlib import Path
+import textwrap
 
 class TagSingleLine():
     """
@@ -15,8 +16,7 @@ class TagSingleLine():
         self._attributes.update(kwargs)
         # атрибут чилдрен тут потому что __init__ тут
         self._children = []
-        # отступы. но не очень получилось
-        self._indent = ""
+
     
     def __iter__(self):
         # можно for собрать отступы но не очень корректно показывает вложенность одного уровня
@@ -26,9 +26,9 @@ class TagSingleLine():
     def tag(self):
         # не изменяемый тэг
         if self.attributes:
-            return f'{self._indent}<{self.__tag} {self.attributes}>'
+            return f'<{self.__tag} {self.attributes}>'
         else:
-            return f'{self._indent}<{self.__tag}>'
+            return f'<{self.__tag}>'
 
     @property
     def close_tag(self):
@@ -63,13 +63,12 @@ class Tag(TagSingleLine):
             arr = []
             for item in self._children:
                 #вот тут добавляются отступы
-                item._indent = self._indent + "  "
-                arr.append(str(item))
+                arr.append(textwrap.indent(str(item), '    '))
             child.extend(arr)
         if self.text:
             self.text += "\n"
         child_line = "".join(child)
-        return "{0}{1}\n{2}{3}{4}{5}\n".format(self._indent, self.tag, self.text, child_line, self._indent, self.close_tag)
+        return "{0}{1}\n{2}{3}\n".format(self.tag, self.text, child_line, self.close_tag)
     
     def __iadd__ (self, other):
         self._children.append(other)
@@ -119,3 +118,14 @@ if __name__ == '__main__':
     doc.show()
 
     doc.write('index.html')
+
+    test = Html()
+    div1 = Tag("div1")
+    div2 = Tag("div2")
+    div3 = Tag("div3")
+    div4 = Tag("div4")
+    div1 += div2
+    div2 += div3
+    div3 += div4
+    test.append(div1)
+    test.show()
