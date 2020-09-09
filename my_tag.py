@@ -116,16 +116,4 @@ if __name__ == '__main__':
 
     doc.append(body)
     doc.show()
-
     doc.write('index.html')
-
-    test = Html()
-    div1 = Tag("div1")
-    div2 = Tag("div2")
-    div3 = Tag("div3")
-    div4 = Tag("div4")
-    div1 += div2
-    div2 += div3
-    div3 += div4
-    test.append(div1)
-    test.show()
